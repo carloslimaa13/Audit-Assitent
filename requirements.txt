@@ -1,7 +1,5 @@
 git+https://github.com/carloslima/Audit-Assitent
-streamlit==1.25.0
-pypdf2==3.1.0
-PyMuPDF==1.22.3
-pdfminer.six==20221105
-pytesseract==0.3.10
-Pillow==9.4.0
+streamlit
+PyPDF2
+PyMuPDF
+pdfminer.six
