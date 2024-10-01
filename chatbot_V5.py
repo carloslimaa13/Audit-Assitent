@@ -1,12 +1,8 @@
 # Importando as bibliotecas
 import streamlit as st
 import PyPDF2
-import fitz
 from pdfminer.high_level import extract_text
 import re
-
-# Apontar onde está o executável do PyTesseract
-pytesseract.pytesseract.tesseract_cmd = r'C:\Users\BR0191766727\OneDrive - Enel Spa\PyTesseract-OCR\tesseract-ocr-w64-setup-5.4.0.20240606'
 
 # Título da página
 st.write("""
@@ -70,6 +66,6 @@ if arquivos_carregados:
         st.write(f"Processando {arquivo_carregado.name}...")
         texto_extraido = extrair_texto_pdf(arquivo_carregado)
         if texto_extraido:
-            st.text_area(f"Conteúdo extráido de {arquivo_carregado.name}:", texto_extraido, height=300)
+            st.text_area(f"Conteúdo extraído de {arquivo_carregado.name}:", texto_extraido, height=300)
         else:
             st.error(f"ERRO: Erro ao extrair o texto de {arquivo_carregado.name}.")
