@@ -58,11 +58,14 @@ def extrair_texto_pdf(arquivos_carregados):
 # Função para buscar palavras ou frases nos textos extraídos
 def buscar_texto(palavra, textos):
     resultados = {}
+    # Usa uma expressão regular para garantir que a busca seja por palavra exata
+    padrao = rf'\b{re.escape(palavra)}\b'  # Adiciona delimitadores de palavra
+
     for nome_arquivo, texto in textos.items():
         paragrafos = texto.split('\n\n')  # Separa o texto por parágrafos (duas quebras de linha)
         encontrados = []  # Lista para armazenar os parágrafos encontrados
         for paragrafo in paragrafos:
-            if palavra.lower() in paragrafo.lower():  # Busca ignorando maiúsculas/minúsculas
+            if re.search(padrao, paragrafo, re.IGNORECASE):  # Busca pela palavra exata, ignorando maiúsculas/minúsculas
                 encontrados.append(paragrafo)
         if encontrados:
             resultados[nome_arquivo] = encontrados  # Adiciona os parágrafos encontrados ao dicionário
