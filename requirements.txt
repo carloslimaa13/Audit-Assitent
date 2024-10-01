@@ -1,7 +1,7 @@
+git+https://github.com/carloslima/Audit-Assitent
 streamlit
 pypdf
 PyMuPDF
 pdfminer.six
 pytesseract
 Pillow
-
