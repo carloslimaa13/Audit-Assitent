@@ -55,10 +55,25 @@ def extrair_texto_pdf(arquivos_carregados):
 
     return None  # Retorna None se falhar em todas as tentativas
 
+# Função para buscar palavras ou frases nos textos extraídos
+def buscar_texto(palavra, textos):
+    resultados = {}
+    for nome_arquivo, texto in textos.items():
+        paragrafos = texto.split('\n\n')  # Separa o texto por parágrafos (duas quebras de linha)
+        encontrados = []  # Lista para armazenar os parágrafos encontrados
+        for paragrafo in paragrafos:
+            if palavra.lower() in paragrafo.lower():  # Busca ignorando maiúsculas/minúsculas
+                encontrados.append(paragrafo)
+        if encontrados:
+            resultados[nome_arquivo] = encontrados  # Adiciona os parágrafos encontrados ao dicionário
+    return resultados
 
 # Upload de múltiplos arquivos
 st.write("### Adicione os arquivos abaixo")
 arquivos_carregados = st.file_uploader("Arraste ou selecione os arquivos.", type="pdf", accept_multiple_files=True, help="Faça o upload aqui!")
+
+# Dicionário para armazenar o conteúdo extraído de cada arquivo
+textos_pdf = {}
 
 # Processar cada arquivo PDF carregado
 if arquivos_carregados:
@@ -66,6 +81,23 @@ if arquivos_carregados:
         st.write(f"Processando {arquivo_carregado.name}...")
         texto_extraido = extrair_texto_pdf(arquivo_carregado)
         if texto_extraido:
-            st.text_area(f"Conteúdo extraído de {arquivo_carregado.name}:", texto_extraido, height=300)
+            textos_pdf[arquivo_carregado.name] = texto_extraido
         else:
             st.error(f"ERRO: Erro ao extrair o texto de {arquivo_carregado.name}.")
+
+# Campo para o usuário digitar a palavra ou frase que deseja buscar
+palavra_busca = st.text_input("Digite a palavra ou frase que deseja buscar:")
+
+# Botão para realizar a busca
+if st.button("Buscar"):
+    if palavra_busca and textos_pdf:
+        resultados_busca = buscar_texto(palavra_busca, textos_pdf)
+        if resultados_busca:
+            for nome_arquivo, paragrafos in resultados_busca.items():
+                with st.expander(f"Resultados para '{palavra_busca}' em {nome_arquivo}"):
+                    for paragrafo in paragrafos:
+                        st.write(paragrafo)  # Exibe cada parágrafo encontrado
+        else:
+            st.write("Nenhum resultado encontrado para a busca.")
+    else:
+        st.write("Por favor, insira uma palavra/frase válida e carregue arquivos PDF.")
