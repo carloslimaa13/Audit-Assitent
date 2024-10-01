@@ -1,4 +1,3 @@
-git+https://github.com/carloslima/Audit-Assitent.git
 streamlit
 PyPDF2
 PyMuPDF
