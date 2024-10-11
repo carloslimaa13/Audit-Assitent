@@ -13,47 +13,34 @@ Por aqui você pode ter um auxílio e otimizar seu tempo analisando contratos. B
 
 # Função para limpar o texto
 def limpar_texto(texto):
-    # Substituir múltiplas quebras de linha por duas para garantir a separação de parágrafos
-    texto = re.sub(r'\n\s*\n', '\n\n', texto)  # Garante que parágrafos fiquem com duas quebras de linha
-
-    # Tratar os hífens no final das linhas
-    texto = re.sub(r'-\s+', '', texto)
-
-    # Remover cabeçalhos e rodapés
-    texto = re.sub(r'Header Text|Footer Text', ' ', texto)
-
-    # Remover caracteres invisíveis
-    texto = texto.replace('\u200b', '').strip()
-
-    # Converter caracteres especiais
-    texto = texto.encode('utf-8', 'ignore').decode('utf-8')
-
+    texto = re.sub(r'\n\s*\n', '\n\n', texto)  # Mantém duas quebras de linha entre parágrafos
+    texto = re.sub(r'-\s+', '', texto)  # Remove hífens no final de linha
+    texto = re.sub(r'\b(?:Página\s*\d+|\d+\s*de\s*\d+)\b', ' ', texto) # Remover cabeçalhos/rodapés genéricos
+    texto = texto.replace('\u200b', '').strip()  # Remover caracteres invisíveis
+    texto = texto.encode('utf-8', 'ignore').decode('utf-8')  # Remover caracteres especiais
     return texto
 
 # Função para extrair texto do PDF
-def extrair_texto_pdf(arquivos_carregados):
-    # Tentativa inicial de extração com PyPDF2 (Para PDFs baseados em texto)
+def extrair_texto_pdf(arquivo_carregado):
+    # Tentar extrair texto com PyPDF2 (PDFs baseados em texto)
     try:
-        reader = PyPDF2.PdfReader(arquivos_carregados)
+        reader = PyPDF2.PdfReader(arquivo_carregado)
         texto_extraido = ""
         for pagina in reader.pages:
             texto_extraido += pagina.extract_text()
-
         if texto_extraido:
             return limpar_texto(texto_extraido)
-
     except Exception as e:
-        st.error(f"ERRO: Erro ao tentar extrair texto com PyPDF2: {e}")
+        st.error(f"ERRO: Falha na extração com PyPDF2: {e}")
 
-    # Caso o PyPDF2 falhe, tentamos com pdfminer (maior compatibilidade com PDFs complexos)
+    # Tentar com pdfminer para maior compatibilidade
     try:
-        texto_extraido = extract_text(arquivos_carregados)
+        texto_extraido = extract_text(arquivo_carregado)
         return limpar_texto(texto_extraido)
-
     except Exception as e:
-        st.error(f"ERRO: Erro ao tentar extrair texto com pdfminer: {e}")
+        st.error(f"ERRO: Falha na extração com pdfminer: {e}")
 
-    return None  # Retorna None se falhar em todas as tentativas
+    return None
 
 # Função para buscar palavras ou frases nos textos extraídos
 def buscar_texto(palavra, textos):
@@ -78,15 +65,27 @@ arquivos_carregados = st.file_uploader("Arraste ou selecione os arquivos.", type
 # Dicionário para armazenar o conteúdo extraído de cada arquivo
 textos_pdf = {}
 
+# Criando a barra de progresso
+progress_bar = st.progress(0)
+total_arquivos = len(arquivos_carregados)
+
 # Processar cada arquivo PDF carregado
 if arquivos_carregados:
-    for arquivo_carregado in arquivos_carregados:
-        st.write(f"Processando {arquivo_carregado.name}...")
-        texto_extraido = extrair_texto_pdf(arquivo_carregado)
-        if texto_extraido:
-            textos_pdf[arquivo_carregado.name] = texto_extraido
-        else:
-            st.error(f"ERRO: Erro ao extrair o texto de {arquivo_carregado.name}.")
+    for i, arquivo_carregado in enumerate(arquivos_carregados):
+        try:
+            texto_extraido = extrair_texto_pdf(arquivo_carregado)
+            if texto_extraido:
+                textos_pdf[arquivo_carregado.name] = texto_extraido
+            else:
+                st.error(f"ERRO: Erro ao extrair o texto de {arquivo_carregado.name}.")
+        except Exception as e:
+            st.error(f"ERRO: Falha ao processar {arquivo_carregado.name}: {e}")
+        
+        # Atualizando a barra de progresso
+        progresso_atual = (i + 1) / total_arquivos
+        progress_bar.progress(progresso_atual)
+
+    st.success("Todos os arquivos foram processados com sucesso!")
 
 # Campo para o usuário digitar a palavra ou frase que deseja buscar
 palavra_busca = st.text_input("Digite a palavra ou frase que deseja buscar:")
@@ -94,13 +93,14 @@ palavra_busca = st.text_input("Digite a palavra ou frase que deseja buscar:")
 # Botão para realizar a busca
 if st.button("Buscar"):
     if palavra_busca and textos_pdf:
-        resultados_busca = buscar_texto(palavra_busca, textos_pdf)
-        if resultados_busca:
-            for nome_arquivo, paragrafos in resultados_busca.items():
-                with st.expander(f"Resultados para '{palavra_busca}' em {nome_arquivo}"):
-                    for paragrafo in paragrafos:
-                        st.write(paragrafo)  # Exibe cada parágrafo encontrado
-        else:
-            st.write("Nenhum resultado encontrado para a busca.")
+        with st.spinner("Realizando a busca..."):
+            resultados_busca = buscar_texto(palavra_busca, textos_pdf)
+            if resultados_busca:
+                for nome_arquivo, paragrafos in resultados_busca.items():
+                    with st.expander(f"Resultados para '{palavra_busca}' em {nome_arquivo}"):
+                        for paragrafo in paragrafos:
+                            st.write(paragrafo)
+            else:
+                st.write("Nenhum resultado encontrado.")
     else:
         st.write("Por favor, insira uma palavra/frase válida e carregue arquivos PDF.")
