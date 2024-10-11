@@ -1,8 +1,9 @@
-# Importando as bibliotecas
 import streamlit as st
 import PyPDF2
 from pdfminer.high_level import extract_text
 import re
+from io import BytesIO
+from docx import Document
 
 # Título da página
 st.write("""
@@ -15,14 +16,13 @@ Por aqui você pode ter um auxílio e otimizar seu tempo analisando contratos. B
 def limpar_texto(texto):
     texto = re.sub(r'\n\s*\n', '\n\n', texto)  # Mantém duas quebras de linha entre parágrafos
     texto = re.sub(r'-\s+', '', texto)  # Remove hífens no final de linha
-    texto = re.sub(r'\b(?:Página\s*\d+|\d+\s*de\s*\d+)\b', ' ', texto) # Remover cabeçalhos/rodapés genéricos
+    texto = re.sub(r'\b(?:Página\s*\d+|\d+\s*de\s*\d+)\b', ' ', texto)  # Remover cabeçalhos/rodapés genéricos
     texto = texto.replace('\u200b', '').strip()  # Remover caracteres invisíveis
     texto = texto.encode('utf-8', 'ignore').decode('utf-8')  # Remover caracteres especiais
     return texto
 
 # Função para extrair texto do PDF
 def extrair_texto_pdf(arquivo_carregado):
-    # Tentar extrair texto com PyPDF2 (PDFs baseados em texto)
     try:
         reader = PyPDF2.PdfReader(arquivo_carregado)
         texto_extraido = ""
@@ -32,31 +32,36 @@ def extrair_texto_pdf(arquivo_carregado):
             return limpar_texto(texto_extraido)
     except Exception as e:
         st.error(f"ERRO: Falha na extração com PyPDF2: {e}")
-
-    # Tentar com pdfminer para maior compatibilidade
     try:
         texto_extraido = extract_text(arquivo_carregado)
         return limpar_texto(texto_extraido)
     except Exception as e:
         st.error(f"ERRO: Falha na extração com pdfminer: {e}")
-
     return None
 
 # Função para buscar palavras ou frases nos textos extraídos
 def buscar_texto(palavra, textos):
     resultados = {}
-    # Usa uma expressão regular para garantir que a busca seja por palavra exata
-    padrao = rf'\b{re.escape(palavra)}\b'  # Adiciona delimitadores de palavra
-
+    padrao = rf'\b{re.escape(palavra)}\b'
     for nome_arquivo, texto in textos.items():
-        paragrafos = texto.split('\n\n')  # Separa o texto por parágrafos (duas quebras de linha)
-        encontrados = []  # Lista para armazenar os parágrafos encontrados
-        for paragrafo in paragrafos:
-            if re.search(padrao, paragrafo, re.IGNORECASE):  # Busca pela palavra exata, ignorando maiúsculas/minúsculas
-                encontrados.append(paragrafo)
+        paragrafos = texto.split('\n\n')
+        encontrados = [paragrafo for paragrafo in paragrafos if re.search(padrao, paragrafo, re.IGNORECASE)]
         if encontrados:
-            resultados[nome_arquivo] = encontrados  # Adiciona os parágrafos encontrados ao dicionário
+            resultados[nome_arquivo] = encontrados
     return resultados
+
+# Função para criar um arquivo Word com os parágrafos encontrados
+def gerar_arquivo_word(paragrafos, nome_arquivo):
+    doc = Document()
+    doc.add_heading(f"Resultados para {nome_arquivo}", 0)
+    for paragrafo in paragrafos:
+        doc.add_paragraph(paragrafo)
+    
+    # Salvar o arquivo em um buffer de memória
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)  # Volta ao início do buffer para o download
+    return buffer
 
 # Upload de múltiplos arquivos
 st.write("### Adicione os arquivos abaixo")
@@ -81,7 +86,6 @@ if arquivos_carregados:
         except Exception as e:
             st.error(f"ERRO: Falha ao processar {arquivo_carregado.name}: {e}")
         
-        # Atualizando a barra de progresso
         progresso_atual = (i + 1) / total_arquivos
         progress_bar.progress(progresso_atual)
 
@@ -100,6 +104,17 @@ if st.button("Buscar"):
                     with st.expander(f"Resultados para '{palavra_busca}' em {nome_arquivo}"):
                         for paragrafo in paragrafos:
                             st.write(paragrafo)
+                        
+                        # Gerar arquivo Word com os parágrafos encontrados
+                        buffer = gerar_arquivo_word(paragrafos, nome_arquivo)
+                        
+                        # Adiciona um botão de download para o arquivo Word
+                        st.download_button(
+                            label="Baixar resultados como Word",
+                            data=buffer,
+                            file_name=f"resultados_{nome_arquivo}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
             else:
                 st.write("Nenhum resultado encontrado.")
     else:
